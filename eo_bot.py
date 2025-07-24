@@ -8,7 +8,8 @@ EO_PASSWORD = "Ya12345678"
 
 async def start_bot():
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
+        # المتصفح شغال بواجهة مرئية عشان تقدر تتابع
+        browser = await p.chromium.launch(headless=False)
         page = await browser.new_page()
 
         # تسجيل الدخول
@@ -25,8 +26,11 @@ async def start_bot():
         previous_price = None
 
         while True:
-            price_element = await page.query_selector('.price-class')  # عدل المحدد هنا
+            # لاحظ هذا السيلكتور لازم تغيره حسب العنصر الحقيقي لسعر السوق في موقع ExpertOption
+            price_element = await page.query_selector('.price')  # جرب '.price' أو غيره حسب الفحص
+
             if not price_element:
+                print("لم أجد عنصر السعر، أعيد المحاولة بعد 5 ثواني...")
                 await asyncio.sleep(5)
                 continue
 
@@ -34,13 +38,14 @@ async def start_bot():
             price = float(price_text.replace(",", "").strip())
 
             recommendation = "انتظار"
-            if previous_price:
+            if previous_price is not None:
                 if price > previous_price:
                     recommendation = "شراء (BUY)"
                 elif price < previous_price:
                     recommendation = "بيع (SELL)"
 
             message = f"التوصية الحالية: {recommendation}\nالسعر: {price}"
+            print(message)  # طباعة في الكونسول للمتابعة
             await send_telegram_message(message)
 
             previous_price = price

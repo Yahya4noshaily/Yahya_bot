@@ -2,6 +2,7 @@
 import asyncio
 from playwright.async_api import async_playwright
 from telegram_sender import send_telegram_message
+from strategies import combined_strategy  # استيراد استراتيجيات التحليل
 
 EO_EMAIL = "nushily1@gmail.com"
 EO_PASSWORD = "Ya12345678"
@@ -22,29 +23,33 @@ async def start_bot():
         await page.goto("https://client.expertoption.com/en/market/SMARTY")
         await page.wait_for_timeout(5000)
 
-        previous_price = None
+        prices = []
 
         while True:
-            # تعديل هنا لاختيار العنصر المناسب للسعر بشكل أعم
             price_element = await page.query_selector('div[class*="price"], div[class*="value"]')
             if not price_element:
+                print("لم أجد عنصر السعر، أعيد المحاولة بعد 5 ثواني...")
                 await asyncio.sleep(5)
                 continue
 
             price_text = await price_element.inner_text()
             price = float(price_text.replace(",", "").strip())
 
-            recommendation = "انتظار"
-            if previous_price:
-                if price > previous_price:
-                    recommendation = "شراء (BUY)"
-                elif price < previous_price:
-                    recommendation = "بيع (SELL)"
+            # تحديث قائمة الأسعار
+            prices.append(price)
+            if len(prices) > 30:
+                prices.pop(0)
+
+            # استخدام الاستراتيجية المركبة لتحليل الأسعار
+            if len(prices) >= 14:
+                recommendation = combined_strategy(prices)
+            else:
+                recommendation = "انتظار"
 
             message = f"التوصية الحالية: {recommendation}\nالسعر: {price}"
+            print(message)
             await send_telegram_message(message)
 
-            previous_price = price
             await asyncio.sleep(60)
 
         await browser.close()
